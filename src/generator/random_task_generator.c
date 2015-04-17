@@ -15,7 +15,6 @@ void print_pta_json(periodic_task_attr p[], unsigned int size)
 
   for (i=0; i<size; ++i) {
       printf("\t\t\"thread%d\" : {\n", i);
-
       printf("\t\t\t\"jobs\":\t\t%d.0,\n", p[i].jobs);
       printf("\t\t\t\"ss_every\":\t%d.0,\n", p[i].ss_every);
       printf("\t\t\t\"ss\":\t\t%ld.0,\n", p[i].ss);
@@ -58,7 +57,8 @@ void random_task_generator_U(float U[],
       U_sum += U_tmp[i];
   }
 
-  // Reordering array
+  /* Reordering array */
+
   for (i=0; i<size; ++i) {
       for (j=0; j<size - i - 1; ++j) {
           if (U_tmp[j] > U_tmp[j+1]) {
@@ -68,6 +68,11 @@ void random_task_generator_U(float U[],
           }
       }
   }
+  /*
+   * to generate a series of U such that:
+   * summation of Ui=Utot
+   * min i {Ui}>=Utot
+   */
 
   m = (U_tot - size * U_lb) / (U_sum - size * U_tmp[0]);
   q = U_lb / m - U_tmp[0];
@@ -76,10 +81,8 @@ void random_task_generator_U(float U[],
   for (i=0; i<size; ++i) {
       U[i] = (U_tmp[i] + q) * m;
       U_sum += U[i];
-      //printf("U[%d]:\t%f\n", i, U[i]);
-  }
 
-  //printf("U_sum:\t%f\n", U_sum);
+  }
 
   free(U_tmp);
 }
@@ -96,14 +99,13 @@ void random_task_generator_TC(float U[],
 {
   int i;
 
-  // Generating random values
+  /* Generating random values*/
   for (i=0; i<size; ++i) {
       do {
           T[i] = rand() % (T_max + 1);
           C[i] = U[i] * T[i];
       } while (T[i] < T_min || C[i] < 1024);
 
-      //printf("T[%d]: %d\n", i, T[i]);
   }
 }
 
@@ -137,18 +139,6 @@ void random_task_generator_PTA(periodic_task_attr p[],
       p[i].c1 = C_residual * 10 / 60;
   }
 
-  /*
-  printf("c0\tss\tc1\tdl\tperiod\n");
-
-  for (i=0; i<size; ++i) {
-    printf("%d\t%d\t%d\t%d\t%d\n",
-           p[i].c0,
-           p[i].ss,
-           p[i].c1,
-           p[i].deadline,
-           p[i].period);
-  }
-   */
 }
 
 void random_task_generator(periodic_task_attr *p[],
@@ -159,11 +149,13 @@ void random_task_generator(periodic_task_attr *p[],
                            unsigned int T_max,
                            unsigned int jobs)
 {
-  //unsigned int i;
   float *U;
   unsigned int *T;
   unsigned int *C;
-
+  /* allocating memory for the structure of the task
+   * and its parameters(utilizazion factor,
+   * period,runtime)
+   */
   *p = (periodic_task_attr *)malloc(sizeof(periodic_task_attr) * size);
   U = (float *)malloc(sizeof(float) * size);
   T = (unsigned int *)malloc(sizeof(unsigned int) * size);
@@ -172,9 +164,9 @@ void random_task_generator(periodic_task_attr *p[],
   srand(time(NULL));
 
   random_task_generator_U(U, size, U_lb, U_tot);
-  //printf("\n");
+
   random_task_generator_TC(U, T, C, size, T_min, T_max);
-  //printf("\n");
+
   random_task_generator_PTA(*p, C, T, size, jobs);
 
   free(U);

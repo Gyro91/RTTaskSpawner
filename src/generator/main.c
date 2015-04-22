@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
-#include "../periodicity.h"
+#include "periodicity.h"
 #include "random_task_generator.h"
 
 int main(int argc, char *argv[])

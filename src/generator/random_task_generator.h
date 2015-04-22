@@ -1,7 +1,7 @@
 #ifndef __RANDOM_TASK_GENERATOR_HPP__
 #define __RANDOM_TASK_GENERATOR_HPP__
 
-#include "../periodicity.h"
+#include "periodicity.h"
 
 void random_task_generator(periodic_task_attr *p[],
                            unsigned int size,

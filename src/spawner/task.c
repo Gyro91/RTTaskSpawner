@@ -8,6 +8,8 @@
 #include <sched.h>
 
 pthread_mutex_t console_mux = PTHREAD_MUTEX_INITIALIZER;
+int threads_arrived=0;
+pthread_barrier_t barr;
 
 void print_time(const struct timespec *t)
 {
@@ -107,11 +109,27 @@ void task_body(periodic_task_attr *pta)
 
 void *task_main(void *arg)
 {
+  int rc;
   pthread_mutex_lock(&console_mux);
   printf("Thread started [ %ld ]\n", gettid());
   pthread_mutex_unlock(&console_mux);
 
   task_init((periodic_task_attr *)arg);
+  /* threads wait until all arrived on barr */
+
+  pthread_mutex_lock(&console_mux);
+  threads_arrived++;
+  printf("Thread [ %ld ] arrived\n",gettid());
+  printf("Threads on the barrier: %d\n",threads_arrived);
+  pthread_mutex_unlock(&console_mux);
+
+  rc=pthread_barrier_wait(&barr);
+
+  if ((rc != 0) &&
+	 (rc != PTHREAD_BARRIER_SERIAL_THREAD)) {
+	   printf("Could not wait on barrier\n");
+	  	  exit(-1);
+   }
   task_body((periodic_task_attr *)arg);
 
   pthread_mutex_lock(&console_mux);

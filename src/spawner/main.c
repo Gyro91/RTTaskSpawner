@@ -29,13 +29,16 @@ int main()
   unsigned int size = 50;
 
   thread_count = 0;
-  
+
   parse_config_stdin(&p, &size);
 
   /*allocating memory for size thread*/
   thread_list = (pthread_t *)malloc(sizeof(pthread_t) * size);
 
   print_pta_json(p, size);
+
+  /* init for the barrier */
+  pthread_barrier_init(&barr, NULL, size);
 
   printf("Creating %d threads\n", size);
 

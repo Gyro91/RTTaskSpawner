@@ -7,6 +7,9 @@
 
 #include <stdio.h>
 #include "periodicity.h"
+#include "task.h"
+
+pthread_mutex_t mux = PTHREAD_MUTEX_INITIALIZER;
 
 /*
  * Copies the second passed time to the first one
@@ -87,7 +90,18 @@ inline void set_period(periodic_task_attr *ta)
 {
   struct timespec t;
 
+  int i = find_time_tk(gettid());
+  if( i == -1 ){
+	  printf("Error find_time_tk : TID not found! ");
+	  abort();
+  }
+
   clock_gettime(CLOCK_MONOTONIC, &t);
+
+  pthread_mutex_lock(&mux);
+  time_copy(&(tk[i].arrival_time), &t); /* recording arrival time */
+  pthread_mutex_unlock(&mux);
+
   time_copy(&(ta->at), &t);
   time_copy(&(ta->dl), &t);
   time_add_ns(&(ta->at), ta->period);
@@ -100,12 +114,22 @@ inline void set_period(periodic_task_attr *ta)
  */
 inline void wait_for_period(periodic_task_attr *ta)
 {
+  struct timespec t;
+  int i = find_time_tk(gettid());
+  int j = tk[i].index;
   deadline_miss(ta);
-  //printf("Waiting for period\n");
+
+  /* recording job's finishing time */
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  pthread_mutex_lock(&mux);
+  time_copy(&(tk[i].finishing_time[j]), &t);
+  tk[i].index++;
+  pthread_mutex_unlock(&mux);
+
   clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &(ta->at), NULL);
   time_add_ns(&(ta->at), ta->period);
   time_add_ns(&(ta->dl), ta->period);
-  //printf("Woken up\n");
+
 }
 
 /*

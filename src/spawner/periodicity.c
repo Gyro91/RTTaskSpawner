@@ -99,7 +99,7 @@ inline void set_period(periodic_task_attr *ta)
   clock_gettime(CLOCK_MONOTONIC, &t);
 
   pthread_mutex_lock(&mux);
-  time_copy(&(tk[i].arrival_time), &t); /* recording arrival time */
+  time_copy(&(tk[i].arrival_time[0]), &t); /* recording arrival time */
   pthread_mutex_unlock(&mux);
 
   time_copy(&(ta->at), &t);
@@ -114,19 +114,20 @@ inline void set_period(periodic_task_attr *ta)
  */
 inline void wait_for_period(periodic_task_attr *ta)
 {
-  struct timespec t;
   int i = find_time_tk(gettid());
   int j = tk[i].index;
   deadline_miss(ta);
 
   /* recording job's finishing time */
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  pthread_mutex_lock(&mux);
-  time_copy(&(tk[i].finishing_time[j]), &t);
+  clock_gettime(CLOCK_MONOTONIC, &(tk[i].finishing_time[j]));
+//  pthread_mutex_lock(&mux);
   tk[i].index++;
-  pthread_mutex_unlock(&mux);
+  if (j < (ta->jobs-1))
+      time_copy(&(tk[i].arrival_time[j+1]), &(ta->at));
+//  pthread_mutex_unlock(&mux);
 
   clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &(ta->at), NULL);
+
   time_add_ns(&(ta->at), ta->period);
   time_add_ns(&(ta->dl), ta->period);
 

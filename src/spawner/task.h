@@ -12,7 +12,7 @@ extern pthread_barrier_t barr;
 
 struct time_task{
   pthread_t tid;
-  struct timespec arrival_time; /* when a task arrives */
+  struct timespec *arrival_time; /* when a task arrives */
   struct timespec *finishing_time; /* all finishing times for every jobs */
   int index; /* to locate the actually number of jobs */
 };

@@ -12,21 +12,96 @@ int threads_arrived = 0;  /* threads on the barr */
 
 struct time_task *tk;   /* pointer to the memory where are recorded
  	 	 	 	 	 	 * arrival times and finishing times
- 	 	 	 	 	 	 * of each threads
+ 	 	 	 	 	 	 * of each threadsd
  	 	 	 	 	 	 */
 
-/* finds and returns task's time_task structure */
-
-int find_time_tk(pthread_t id)
+struct Task_Body *T_body; /* class T_body,object that
+ 	 	 	 	 	 	   * represents the body of
+ 	 	 	 	 	 	   * every task
+ 	 	 	               */
+void write_and_read(periodic_task_attr *pta)
 {
-  int i=-1;
+  int i,j,aux;
+  char path[16] = "task/";
+  char string[11];
+  FILE *pf;
+  pthread_mutex_lock(&console_mux);
+  printf("Into Task Body [ %ld ]\n", gettid());
+  pthread_mutex_unlock(&console_mux);
 
-  /* finds tk with tid=id */
-  for(i=0; i < threads_arrived; ++i)
-    if ( tk[i].tid == id )
-      return i;
+  set_period(pta);
+
+  sprintf(string,"%ld",gettid());
+  strcat(path,string);
+
+  for(i=0;i < pta->jobs;++i){
+    pf = fopen(path,"w+");
+    if(pf){
+	  for(j=0;j < 3;++j)
+        fprintf(pf,"%d\t",j);
+        fclose(pf);
+    }
+    else printf("Error opening file");
+
+    pf = fopen(path,"r");
+    if(pf){
+      fscanf(pf,"%d",&aux);
+      fclose(pf);
+    }
+    else printf("Error opening file");
+
+
+    wait_for_period(pta);
+  }
+ }
+
+/* method of T_body class .The task acts as follows:
+ *   c0     ss   c1    s_runtime    deadline
+ * |#######======####_______)___________| . . .
+ */
+void do_wait_do(periodic_task_attr *pta)
+{
+  unsigned int i;
+  unsigned int every;
+
+  every = 0;
+
+  pthread_mutex_lock(&console_mux);
+  printf("Into Task Body [ %ld ]\n", gettid());
+  pthread_mutex_unlock(&console_mux);
+
+  set_period(pta);
+
+  for (i=0; i<pta->jobs; ++i) {
+
+    /* Busy wait for c0 */
+    busy_wait(pta->c0);
+
+    /* Self suspension */
+    if (pta->ss_every > 0)
+      every = (every + 1) % pta->ss_every;
+    if (every == 0)
+      susp_wait(pta->ss);
+
+    /* Wait for c1 */
+    busy_wait(pta->c1);
+
+    wait_for_period(pta);
+  }
 }
 
+
+/* constructor of the class */
+
+struct Task_Body *New_T_Body ()
+{
+  struct Task_Body* self = (struct Task_Body*)malloc(sizeof(struct Task_Body));
+
+  self->do_wait_do = &do_wait_do;
+  self->write_and_read = &write_and_read;
+
+  return self;
+}
 
 void print_time(const struct timespec *t)
 {
@@ -65,36 +140,7 @@ void task_init(periodic_task_attr *pta)
   }
 }
 
-void task_body(periodic_task_attr *pta)
-{
-  unsigned int i;
-  unsigned int every;
 
-  every = 0;
-
-  pthread_mutex_lock(&console_mux);
-  printf("Into Task Body [ %ld ]\n", gettid());
-  pthread_mutex_unlock(&console_mux);
-
-  set_period(pta);
-
-  for (i=0; i<pta->jobs; ++i) {
-
-    /* Busy wait for c0 */
-    busy_wait(pta->c0);
-
-    /* Self suspension */
-    if (pta->ss_every > 0)
-      every = (every + 1) % pta->ss_every;
-    if (every == 0)
-      susp_wait(pta->ss);
-
-    /* Wait for c1 */
-    busy_wait(pta->c1);
-
-    wait_for_period(pta);
-  }
-}
 void stampa()
 {
   int i=0;
@@ -105,6 +151,7 @@ void stampa()
 void *task_main(void *arg)
 {
   int rc;
+  periodic_task_attr *pta = (periodic_task_attr *) arg;
   pthread_mutex_lock(&console_mux);
   printf("Thread started [ %ld ]\n", gettid());
   pthread_mutex_unlock(&console_mux);
@@ -113,12 +160,18 @@ void *task_main(void *arg)
    * be scheduled with SCHED_DEADLINE
    */
   task_init((periodic_task_attr *)arg);
+  T_body = New_T_Body();
 
   pthread_mutex_lock(&console_mux);
+
   tk[threads_arrived].tid = gettid(); /* assigns a time_task to a thread */
+  pta->aux = threads_arrived; /* every task can locate its structure */
+
   threads_arrived++; /* task on the barr */
+
   printf("Thread [ %ld ] arrived\n",gettid());
   printf("Threads on the barrier: %d\n",threads_arrived);
+
   pthread_mutex_unlock(&console_mux);
 
   /* threads wait until all arrived on barr */
@@ -128,8 +181,10 @@ void *task_main(void *arg)
 	   printf("Could not wait on barrier\n");
 	   exit(-1);
    }
+  /* recording arrival time */
+  clock_gettime(CLOCK_MONOTONIC,&(tk[pta->aux].arrival_time[0]));
 
-  task_body((periodic_task_attr *)arg);
+  T_body->write_and_read(pta);
 
   pthread_mutex_lock(&console_mux);
   printf("Thread completed [ %ld ]\n", gettid());

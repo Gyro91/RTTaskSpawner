@@ -90,17 +90,7 @@ inline void set_period(periodic_task_attr *ta)
 {
   struct timespec t;
 
-  int i = find_time_tk(gettid());
-  if( i == -1 ){
-	  printf("Error find_time_tk : TID not found! ");
-	  abort();
-  }
-
   clock_gettime(CLOCK_MONOTONIC, &t);
-
-  pthread_mutex_lock(&mux);
-  time_copy(&(tk[i].arrival_time[0]), &t); /* recording arrival time */
-  pthread_mutex_unlock(&mux);
 
   time_copy(&(ta->at), &t);
   time_copy(&(ta->dl), &t);
@@ -114,17 +104,14 @@ inline void set_period(periodic_task_attr *ta)
  */
 inline void wait_for_period(periodic_task_attr *ta)
 {
-  int i = find_time_tk(gettid());
-  int j = tk[i].index;
+  int j = tk[ta->aux].index;
   deadline_miss(ta);
 
-  /* recording job's finishing time */
-  clock_gettime(CLOCK_MONOTONIC, &(tk[i].finishing_time[j]));
-//  pthread_mutex_lock(&mux);
-  tk[i].index++;
+  /* recording job's finishing time and arrivals time(jobs > 0 )*/
+  clock_gettime(CLOCK_MONOTONIC, &(tk[ta->aux].finishing_time[j]));
+  tk[ta->aux].index++;
   if (j < (ta->jobs-1))
-      time_copy(&(tk[i].arrival_time[j+1]), &(ta->at));
-//  pthread_mutex_unlock(&mux);
+      time_copy(&(tk[ta->aux].arrival_time[j+1]), &(ta->at));
 
   clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &(ta->at), NULL);
 

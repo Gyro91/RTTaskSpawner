@@ -11,16 +11,43 @@
 unsigned int thread_count;
 pthread_t *thread_list;
 
+/* calculate min among first arrival times */
+long int calculate_min(int size)
+{
+  int i;
+  long int tmp;
+  long int min = ( tk[0].arrival_time[0].tv_nsec / 1000000 )
+		         + ( tk[0].arrival_time[0].tv_sec * 1000 );
+
+  for(i=1; i < size ; ++i){
+    tmp = ( tk[i].arrival_time[0].tv_nsec / 1000000 )
+		  + ( tk[i].arrival_time[0].tv_sec * 1000 );
+
+    if ( tmp <= min )
+      min = tmp;
+  }
+
+  return tmp;
+}
+
+
 void compute_response_time(int size,int jobs) /* in ms */
 {
   int i,j;
   long int resp_time;
   long int a0,end_j;
+  long int min_a0_0 = calculate_min(size);
 
   for(i=0; i < size; ++i){
     for(j=0; j < jobs ; ++j){
-       a0 = ( tk[i].arrival_time[j].tv_sec * 1000 )
-            + ( tk[i].arrival_time[j].tv_nsec / 1000000 );
+       /* first arrival time is after the barrier,the time
+        * of the first in execution is the arrival time
+        */
+       if(j == 0)
+         a0 = min_a0_0;
+       else
+         a0 = ( tk[i].arrival_time[j].tv_sec * 1000 )
+    	      + ( tk[i].arrival_time[j].tv_nsec / 1000000 );
        /* finishing time for job j */
        end_j = ( tk[i].finishing_time[j].tv_sec * 1000 )
           	  + ( tk[i].finishing_time[j].tv_nsec / 1000000 );
@@ -85,8 +112,12 @@ int main()
     pthread_join(thread_list[thread_count], NULL);
   }
 
+
   compute_response_time(size,p->jobs);
+
   /* free memory */
+  free(T_body);
+
   for(i=0; i < size; ++i){
     free(tk[i].finishing_time);
   	free(tk[i].arrival_time);

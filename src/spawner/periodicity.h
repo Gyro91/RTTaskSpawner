@@ -17,6 +17,7 @@
 typedef struct periodic_task_attr_ {
   void * arg;		// task argument
   int dmiss;		// number of deadline misses
+  int aux; 			// index to locate response parameters
 
   // The task acts as follows:
   //

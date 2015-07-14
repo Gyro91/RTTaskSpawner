@@ -38,7 +38,7 @@ void time_add_ms(struct timespec *dst, long int ms)
  */
 void time_add_ns(struct timespec *dst, long int ns)
 {
-  dst->tv_nsec += ns % (1000 * 1000);
+  dst->tv_nsec += ns;// % (1000 * 1000);
   if (dst->tv_nsec > 1e9) {
     dst->tv_nsec -= 1e9;
     dst->tv_sec++;
@@ -104,19 +104,32 @@ inline void set_period(periodic_task_attr *ta)
  */
 inline void wait_for_period(periodic_task_attr *ta)
 {
+  int miss = 0;
   int j = tk[ta->aux].index;
-  deadline_miss(ta);
+  struct timespec now;
+
+  miss = deadline_miss(ta);
+
+  clock_gettime(CLOCK_MONOTONIC, &now);
 
   /* recording job's finishing time and arrivals time(jobs > 0 )*/
-  clock_gettime(CLOCK_MONOTONIC, &(tk[ta->aux].finishing_time[j]));
+  time_copy(&(tk[ta->aux].finishing_time[j]), &now);
   tk[ta->aux].index++;
-  if (j < (ta->jobs-1))
-      time_copy(&(tk[ta->aux].arrival_time[j+1]), &(ta->at));
+
+  while (time_cmp(&ta->at, &now) < 0) {
+	  time_add_ns(&(ta->at), ta->period);
+	  time_add_ns(&(ta->dl), ta->period);
+  }
 
   clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &(ta->at), NULL);
 
+  if (j < (ta->jobs-1))
+	  time_copy(&(tk[ta->aux].arrival_time[j+1]), &(ta->at));
+
   time_add_ns(&(ta->at), ta->period);
   time_add_ns(&(ta->dl), ta->period);
+
+
 
 }
 
